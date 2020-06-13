@@ -19,21 +19,6 @@ bool updatedRows[DISPLAY_ROWS];
 int leftPaddingNecessary[DISPLAY_ROWS];
 bool textBeingUpdated = false;
 
-char *deblank(char *input)
-{
-    int i, j;
-    char *output = input;
-    for (i = 0, j = 0; i < strlen(input); i++, j++)
-    {
-        if (input[i] != ' ')
-            output[j] = input[i];
-        else
-            j--;
-    }
-    output[j] = 0;
-    return output;
-}
-
 void outputTextToDisplay()
 {
     for (int i = 0; i < DISPLAY_ROWS; i++)
@@ -135,27 +120,3 @@ void printOnLine(int line, const char *s)
         updatedRows[line] = true;
     }
 }
-// char* centerWithPadding(char *s, unsigned int size, char pad, int& leftPadding)
-// {
-//     // We only need to know how many spaces we could pad this with.
-//     // We can then divide (and floor) that number by 2 to get how many spaces
-//     // we need on the left side of the string.
-//     leftPadding = (((int)size)-((int)s.length()))/2;
-//     // String outString = String();
-//     // for (unsigned int i = 0; i < (size - s.length()) / 2; i++)
-//     // {
-//     //     outString.concat(pad);
-//     // }
-//     // outString.concat(s);
-//     // while (outString.length() < size)
-//     // {
-//     //     outString.concat(pad);
-//     // }
-//     // return outString;
-//     return s;
-// }
-
-// char* center(char *s, int size, int& leftPadding)
-// {
-//     return centerWithPadding(s, size, ' ', leftPadding);
-// }
