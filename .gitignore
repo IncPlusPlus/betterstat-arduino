@@ -9,3 +9,5 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+#Files that should never be committed (they usually do have a template file to make your own local-only file)
+src/arduino_secrets.h
