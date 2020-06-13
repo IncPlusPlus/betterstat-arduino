@@ -120,3 +120,11 @@ void printOnLine(int line, const char *s)
         updatedRows[line] = true;
     }
 }
+
+const char* concat(const char *s1, const char *s2) {
+  char* retVal = new char[strlen(s1)+strlen(s2)+1];
+  *retVal = '\0';
+  strcat(retVal,s1);
+  strcat(retVal,s2);
+  return retVal;
+}

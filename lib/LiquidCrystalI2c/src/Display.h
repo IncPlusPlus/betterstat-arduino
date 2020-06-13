@@ -17,4 +17,6 @@ String centerWithPadding(String s, int size, char pad);
 
 void printOnLine(int line, const char *s);
 
+const char* concat(const char *s1, const char *s2);
+
 #endif //BETTERSTAT_ARDUINO_DISPLAY_H

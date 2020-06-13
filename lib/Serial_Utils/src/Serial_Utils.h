@@ -1,0 +1,9 @@
+#ifndef BETTERSTAT_ARDUINO_LIB_SERIAL_UTILS_SRC_SERIAL_UTILS_H_
+#define BETTERSTAT_ARDUINO_LIB_SERIAL_UTILS_SRC_SERIAL_UTILS_H_
+#include <Arduino.h>
+
+String readLine();
+
+String getDelimitedString(const String &s);
+
+#endif //BETTERSTAT_ARDUINO_LIB_SERIAL_UTILS_SRC_SERIAL_UTILS_H_
