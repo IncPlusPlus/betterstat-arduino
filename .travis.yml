@@ -27,4 +27,5 @@
      - platformio update
 
  script:
+     # TODO: add remote runs https://docs.platformio.org/en/latest/plus/unit-testing.html#unit-testing-remote
      - platformio run
