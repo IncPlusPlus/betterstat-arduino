@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <EEPROM.h>
-#include <EEPROM_Persist.h>
-#include <Serial_Utils.h>
+#include "Settings_Persist_EEPROM.hpp"
 
 const int isSetUpIndex = 0;
 const int wifiCredsIndex = isSetUpIndex + sizeof(bool);
@@ -22,27 +21,31 @@ void setSetUp(bool isSetUp) {
   EEPROM.put(isSetUpIndex, isSetUp);
 }
 
+void clearSetUp() {
+  EEPROM.put(isSetUpIndex, false);
+}
+
 void putCreds(char *ssid, char *password) {
-  WiFiCreds creds;
+  WiFiCredsStruct creds;
   memcpy(creds.ssid, ssid, sizeof(creds.ssid));
   memcpy(creds.password, password, sizeof(creds.password));
   EEPROM.put(wifiCredsIndex, creds);
 }
-WiFiCreds getCreds() {
-  // EEPROM[0] will always be where WiFiCreds is stored
-  WiFiCreds creds;
+WiFiCredsStruct getCreds() {
+  // EEPROM[0] will always be where WiFiCredsStruct is stored
+  WiFiCredsStruct creds;
   EEPROM.get(wifiCredsIndex, creds);
   return creds;
 }
 
 void clearCreds() {
-  for (int i = wifiCredsIndex; i < wifiCredsIndex + sizeof(WiFiCreds); i++) {
+  for (int i = wifiCredsIndex; i < wifiCredsIndex + sizeof(WiFiCredsStruct); i++) {
     EEPROM.write(i, 0);
   }
 }
 
 bool credsExist() {
-  WiFiCreds creds = getCreds();
+  WiFiCredsStruct creds = getCreds();
   bool credsValid = true;
   bool ssidEmpty = true;
   bool passwordEmpty = true;
@@ -63,14 +66,7 @@ bool credsExist() {
   return !ssidEmpty && !passwordEmpty;
 }
 
-WiFiCreds promptForCreds() {
-  WiFiCreds userEnteredCreds;
-  Serial.println("WiFi SSID: ");
-  String ssid = readLine();
-  ssid.toCharArray(userEnteredCreds.ssid, ssid.length());
-  Serial.println("WiFi Password: ");
-  String pass = readLine();
-  pass.toCharArray(userEnteredCreds.password, pass.length());
-  putCreds(userEnteredCreds.ssid, userEnteredCreds.password);
-  return userEnteredCreds;
+void clearAllSettings() {
+  clearSetUp();
+  clearCreds();
 }

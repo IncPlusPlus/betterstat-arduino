@@ -2,25 +2,11 @@
 #define BETTERSTAT_ARDUINO_DISPLAY_H
 
 #include <Arduino.h>
+#include <LiquidCrystal_I2C.h>
+#include "display_variables.h"
 
 void initDisplay();
 
-void beginNewText();
-
-void beginUpdateText();
-
-void endText();
-
-String center(String s, int size);
-
-String centerWithPadding(String s, int size, char pad);
-
-void printOnLine(int line, const char *s);
-
-void printRaw(int line, const char *s);
-
-void printRaw(int line, int s);
-
-const char *concat(const char *s1, const char *s2);
+extern LiquidCrystal_I2C lcd;
 
 #endif //BETTERSTAT_ARDUINO_DISPLAY_H
