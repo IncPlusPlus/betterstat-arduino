@@ -9,7 +9,7 @@ void setup() {
   lcd.backlight();
 //  Uncomment this line, upload the program, comment it, and reupload to start with cleared settings.
 // setSetUp(false);
-  Serial.begin(115200);
+  Serial.begin(9600);
   runSetupIfNecessary();
 }
 
