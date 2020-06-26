@@ -1,31 +1,24 @@
-#include <WiFi101.h>
+#include <Arduino.h>
+#include <Wire.h>
+#include <SPI.h>
+#include <WiFiHelper.h>
 #include <Settings_Persist.hpp>
-#include <Display.h>
-#include <avr/pgmspace.h>
+#include <Display.hpp>
 
 const int setupStepTransitionDelay = 2500;
+const int setupWaitTimeSecs = 20;
 const PROGMEM String clearString = "                    ";
 
-void wifiCredsSetup() {
-  lcd.setCursor(0, 2);
-  lcd.print(F("Credentials required"));
-  delay(setupStepTransitionDelay);
-
-  lcd.setCursor(0, 2);
-  lcd.print(F("Reading terminal.   "));
-  lcd.setCursor(0, 3);
-  lcd.print(F("Waiting for input..."));
-
-  WiFiCredsStruct userEnteredCreds = promptForCreds();
-  putCreds(userEnteredCreds.ssid, userEnteredCreds.password);
-
-  lcd.setCursor(0, 2);
-  lcd.print(clearString);
-  lcd.setCursor(0, 2);
-  lcd.print(F("Received credentials"));
-//  lcd.setCursor(0,3);
-//  lcd.print(clearString);
-
+void printCheckingForInputSeconds(int secs) {
+  clearDisplay();
+  setDisplayCursor(0, 0);
+  lcd.print(F("Checking for"));
+  setDisplayCursor(0, 1);
+  lcd.print(F("serial input"));
+  setDisplayCursor(0, 2);
+  lcd.print(secs);
+  lcd.print(F(" seconds...   "));
+  flushDisplay();
 }
 
 char const *getWl_status_t(int status) {
@@ -38,13 +31,121 @@ char const *getWl_status_t(int status) {
     case WL_CONNECT_FAILED:return "connect failed";
     case WL_CONNECTION_LOST:return "connection lost";
     case WL_DISCONNECTED:return "disconnected";
-    case WL_AP_LISTENING:return "AP listening";
-    case WL_AP_CONNECTED:return "AP connected";
-    case WL_AP_FAILED:return "AP failed";
-    case WL_PROVISIONING:return "WL provisioning";
-    case WL_PROVISIONING_FAILED:return "WL provis failed";
+//    case WL_AP_LISTENING:return "AP listening";
+//    case WL_AP_CONNECTED:return "AP connected";
+//    case WL_AP_FAILED:return "AP failed";
+//    case WL_PROVISIONING:return "WL provisioning";
+//    case WL_PROVISIONING_FAILED:return "WL provis failed";
     default:return "unknown status";
   }
+}
+
+void printConnectStatus(bool inSetup, int status) {
+  clearDisplay();
+  if (inSetup) {
+    setDisplayCursor(0, 0);
+    lcd.print(F("Running setup (2/5)"));
+    setDisplayCursor(0, 1);
+    lcd.print(F("Connecting to WiFi"));
+  } else {
+    setDisplayCursor(0, 0);
+    lcd.print(F("Starting up (1/2)"));
+    setDisplayCursor(0, 1);
+    lcd.print(F("Connecting to WiFi"));
+  }
+  if (status == WL_NO_SHIELD) {
+    setDisplayCursor(0, 2);
+    lcd.print(F("SETUP FAILED!!!"));
+    setDisplayCursor(0, 3);
+    lcd.print(F("WiFi shield missing!"));
+    flushDisplay();
+    // don't continue:
+    // TODO: Talk back to the server here if setup is happening so the user can see the issue in-app.
+    // while (true);
+  }
+  setDisplayCursor(0, 2);
+  lcd.print(F("Status:"));
+  setDisplayCursor(0, 3);
+  lcd.print(getWl_status_t(status));
+  flushDisplay();
+}
+
+///Waits setupWaitTimeSecs. If any serial input is detected, it is read out of the buffer
+///and discarded. The only purpose of the text coming over serial is for betterstat-server
+///to let this device know that the server is attempting to configure it over serial.
+bool checkIfSerialCommAttempted() {
+  bool serialCommunicationAttempted = false;
+  for (int waitTimeRemainingSecs = setupWaitTimeSecs; waitTimeRemainingSecs > -1; waitTimeRemainingSecs--) {
+    printCheckingForInputSeconds(waitTimeRemainingSecs);
+    delay(1000);
+    if (Serial.available() > 0) {
+      //break the loop early to continue to the next part
+      break;
+    }
+  }
+  if (Serial.available() > 0) {
+    //There's at least one byte coming in over serial!
+    serialCommunicationAttempted = true;
+    clearDisplay();
+    setDisplayCursor(0, 0);
+    lcd.print(F("Connected to device"));
+    setDisplayCursor(0, 1);
+    lcd.print(F("over serial!"));
+    flushDisplay();
+    delay(1500);
+    while (Serial.available() > 0) {
+//      Serial.print("Available = ");
+//      Serial.println(Serial.available());
+      //Flush out whatever was sent over serial until there's nothing left
+      //We don't want to read in erroneous bytes when the server starts talking to us for real
+      Serial.read();
+      //Are we reading too fast? It seems like Serial.available() returns 0 even when there's move to be read
+      delay(50);
+    }
+    Serial.println(F("WAITING_FOR_SETUP"));
+    clearDisplay();
+    setDisplayCursor(0, 0);
+    lcd.print(F("Waiting for user"));
+    setDisplayCursor(0, 1);
+    lcd.print(F("to start setup"));
+    flushDisplay();
+    while (!Serial.available()) {
+      //Wait to start the setup until the user is ready
+      delay(50);
+    }
+    while (Serial.available() > 0) {
+//      Serial.print("Available = ");
+//      Serial.println(Serial.available());
+      //Flush out whatever was sent over serial until there's nothing left
+      //We don't want to read in erroneous bytes when the server starts talking to us for real
+      Serial.read();
+      //Are we reading too fast? It seems like Serial.available() returns 0 even when there's move to be read
+      delay(50);
+    }
+  }
+  clearDisplay();
+  return serialCommunicationAttempted;
+}
+
+void wifiCredsSetup() {
+  setDisplayCursor(0, 2);
+  lcd.print(F("Reading terminal.   "));
+  setDisplayCursor(0, 3);
+  lcd.print(F("Waiting for input..."));
+  flushDisplay();
+
+  WiFiCredsStruct userEnteredCreds = promptForCreds();
+  Serial.print("'");
+  Serial.print(userEnteredCreds.ssid);
+  Serial.println("'");
+  Serial.print("'");
+  Serial.print(userEnteredCreds.password);
+  Serial.println("'");
+  putCreds(userEnteredCreds.ssid, userEnteredCreds.password);
+  clearDisplay();
+  setDisplayCursor(0, 2);
+  lcd.print(F("Received credentials"));
+  flushDisplay();
 }
 
 void printMacAddress(byte mac[]) {
@@ -60,116 +161,139 @@ void printMacAddress(byte mac[]) {
   Serial.println();
 }
 
-void printWiFiData() {
-  // print your WiFi shield's IP address:
-  IPAddress ip = WiFi.localIP();
-  Serial.print("IP Address: ");
-  Serial.println(ip);
-  Serial.println(ip);
+//void printWiFiData() {
+//  // print your WiFi shield's IP address:
+//  IPAddress ip = WiFi.localIP();
+//  Serial.print("IP Address: ");
+//  Serial.println(ip);
+//  Serial.println(ip);
+//
+//  // print your MAC address:
+//  byte mac[6];
+//  WiFi.macAddress(mac);
+//  Serial.print("MAC address: ");
+//  printMacAddress(mac);
+//
+//}
+//
+//void printCurrentNet() {
+//  // print the SSID of the network you're attached to:
+//  Serial.print("SSID: ");
+//  Serial.println(WiFi.SSID());
+//
+//  // print the MAC address of the router you're attached to:
+//  byte bssid[6];
+//  WiFi.BSSID(bssid);
+//  Serial.print("BSSID: ");
+//  printMacAddress(bssid);
+//
+//  // print the received signal strength:
+//  long rssi = WiFi.RSSI();
+//  Serial.print("signal strength (RSSI):");
+//  Serial.println(rssi);
+//
+//  // print the encryption type:
+//  byte encryption = WiFi.encryptionType();
+//  Serial.print("Encryption Type:");
+//  Serial.println(encryption, HEX);
+//  Serial.println();
+//}
 
-  // print your MAC address:
-  byte mac[6];
-  WiFi.macAddress(mac);
-  Serial.print("MAC address: ");
-  printMacAddress(mac);
-
-}
-
-void printCurrentNet() {
-  // print the SSID of the network you're attached to:
-  Serial.print("SSID: ");
-  Serial.println(WiFi.SSID());
-
-  // print the MAC address of the router you're attached to:
-  byte bssid[6];
-  WiFi.BSSID(bssid);
-  Serial.print("BSSID: ");
-  printMacAddress(bssid);
-
-  // print the received signal strength:
-  long rssi = WiFi.RSSI();
-  Serial.print("signal strength (RSSI):");
-  Serial.println(rssi);
-
-  // print the encryption type:
-  byte encryption = WiFi.encryptionType();
-  Serial.print("Encryption Type:");
-  Serial.println(encryption, HEX);
-  Serial.println();
-}
-
-void wifiConnect() {
+void wifiConnect(bool inSetup) {
   // check for the presence of the shield:
-  if (WiFi.status() == WL_NO_SHIELD) {
-
-    lcd.setCursor(0, 2);
-    lcd.print(F("SETUP FAILED!!!"));
-    lcd.setCursor(0, 3);
-    lcd.print(F("WiFi shield missing!"));
-
-    // don't continue:
-    // TODO: Talk back to the server here if setup is happening so the user can see the issue in-app.
-    // while (true);
-  }
+//  if (WiFi.status() == WL_NO_SHIELD) {
+//    setDisplayCursor(0, 2);
+//    lcd.print(F("SETUP FAILED!!!"));
+//    setDisplayCursor(0, 3);
+//    lcd.print(F("WiFi shield missing!"));
+//    flushDisplay();
+//    // don't continue:
+//    // TODO: Talk back to the server here if setup is happening so the user can see the issue in-app.
+//    // while (true);
+//  }
   Serial.println(F("About to connect"));
   int status = WL_IDLE_STATUS;     // the WiFi radio's status
-
-  lcd.setCursor(0, 2);
-  lcd.print(clearString);
-  lcd.setCursor(0, 2);
-  lcd.print(F("Status:"));
-  lcd.setCursor(0, 3);
-  lcd.print(clearString);
-  lcd.setCursor(0, 3);
-  lcd.print(getWl_status_t(status));
+  printConnectStatus(inSetup, status);
   delay(setupStepTransitionDelay);
   while (status != WL_CONNECTED) {
     // Connect to WPA/WPA2 network:
     WiFiCredsStruct creds = getCreds();
-    Serial.println(F("Grabbed creds. Connecting"));
-    Serial.println(creds.ssid);
-    Serial.println(creds.password);
+    Serial.print("'");
+    Serial.print(creds.ssid);
+    Serial.println("'");
+    Serial.print("'");
+    Serial.print(creds.password);
+    Serial.println("'");
     status = WiFi.begin(creds.ssid, creds.password);
-    Serial.println(F("Finished WiFi.begin() call"));
-    lcd.setCursor(0, 3);
-    lcd.print(getWl_status_t(status));
     // wait 10 seconds for connection:
     delay(setupStepTransitionDelay);
     Serial.println(getWl_status_t(status));
-    lcd.setCursor(0, 3);
-    lcd.print(getWl_status_t(WiFi.status()));
+    printConnectStatus(inSetup, status);
   }
-  printCurrentNet();
-  printWiFiData();
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+//  printCurrentNet();
+//  printWiFiData();
 }
 
-void doTokenSetup() {
-  lcd.setCursor(0, 2);
+void doServerCredsSetup() {
+  setDisplayCursor(0, 2);
   lcd.print(clearString);
-  lcd.setCursor(0, 3);
+  setDisplayCursor(0, 3);
   lcd.print(clearString);
+  setDisplayCursor(0, 2);
+  lcd.print(F("Reading terminal.   "));
+  setDisplayCursor(0, 3);
+  lcd.print(F("Waiting for input..."));
+  flushDisplay();
 
+  ServerCredsStruct userEnteredCreds = promptForServerCreds();
+  putServerCreds(userEnteredCreds.username, userEnteredCreds.password);
+
+  setDisplayCursor(0, 2);
+  lcd.print(clearString);
+  setDisplayCursor(0, 2);
+  lcd.print(F("Received credentials"));
+  flushDisplay();
 }
 
 void doServerHostnameOrIpSetup() {
-  lcd.setCursor(0, 2);
+  setDisplayCursor(0, 2);
   lcd.print(clearString);
-  lcd.setCursor(0, 3);
+  setDisplayCursor(0, 3);
   lcd.print(clearString);
+  setDisplayCursor(0, 2);
+  lcd.print(F("Reading terminal.   "));
+  setDisplayCursor(0, 3);
+  lcd.print(F("Waiting for input..."));
+  flushDisplay();
 
+  HostnameStruct hostname_struct = promptForHostname();
+  putHostname(hostname_struct.hostname, hostname_struct.isAnIP);
+
+  setDisplayCursor(0, 2);
+  lcd.print(clearString);
+  setDisplayCursor(0, 2);
+  lcd.print(F("Received hostname"));
+  flushDisplay();
 }
 
 void confirmServerCommunication() {
-  lcd.setCursor(0, 2);
+  setDisplayCursor(0, 2);
   lcd.print(clearString);
-  lcd.setCursor(0, 3);
+  setDisplayCursor(0, 3);
   lcd.print(clearString);
-
+  flushDisplay();
+//IPAddress ip = WiFi.localIP();
+//  if(client.connect())
 }
 
 void finalizeSetup() {
   // TODO: Send message to the server to have the app prompt the user to do the next setup steps.
   setSetUp(true);
+  Serial.println(F("SETUP_COMPLETE"));
 }
 
 ///Sets up this thermostat to be able to talk to the betterstat server.
@@ -177,67 +301,71 @@ void finalizeSetup() {
 void setupThermostat() {
   //<editor-fold desc="Set up WiFi credentials">
 
-  lcd.setCursor(0, 0);
+  setDisplayCursor(0, 0);
   lcd.print(F("Running setup (1/5)"));
-  lcd.setCursor(0, 1);
-  lcd.print(F("Setting up: WiFi"));
+  setDisplayCursor(0, 1);
+  lcd.print(F("Setting up WiFi"));
+  flushDisplay();
 
   wifiCredsSetup();
   delay(setupStepTransitionDelay);
   //</editor-fold>
 
   //<editor-fold desc="Connect to WiFi">
-  lcd.setCursor(0, 0);
+  clearDisplay();
+  setDisplayCursor(0, 0);
   lcd.print(F("Running setup (2/5)"));
-  lcd.setCursor(0, 1);
+  setDisplayCursor(0, 1);
   lcd.print(F("Connecting to WiFi"));
+  flushDisplay();
 
-  wifiConnect();
+  wifiConnect(true);
   delay(setupStepTransitionDelay);
   //</editor-fold>
 
   //<editor-fold desc="Get auth token from server">
-  lcd.setCursor(0, 0);
+  setDisplayCursor(0, 0);
   lcd.print(F("Running setup (3/5)"));
-  lcd.setCursor(0, 1);
-  lcd.print(F("Getting auth token"));
+  setDisplayCursor(0, 1);
+  lcd.print(F("Getting credentials"));
+  flushDisplay();
 
-//  TODO: We don't have this set up server-side yet. Therefore, there's no Arduino implementation for it yet either.
-  doTokenSetup();
+  doServerCredsSetup();
   delay(setupStepTransitionDelay);
   //</editor-fold>
 
   //<editor-fold desc="Save hostname or IP to EEPROM">
-  lcd.setCursor(0, 0);
+  setDisplayCursor(0, 0);
   lcd.print(F("Running setup (4/5)"));
-  lcd.setCursor(0, 1);
+  setDisplayCursor(0, 1);
   lcd.print(F("Saving host IP/name"));
+  flushDisplay();
 
-//  TODO: We don't have this set up server-side yet. Therefore, there's no Arduino implementation for it yet either.
   doServerHostnameOrIpSetup();
   delay(setupStepTransitionDelay);
   //</editor-fold>
 
   //<editor-fold desc="Test communication with server">
-  lcd.setCursor(0, 0);
+  setDisplayCursor(0, 0);
   lcd.print(F("Running setup (5/5)"));
-  lcd.setCursor(0, 1);
+  setDisplayCursor(0, 1);
   lcd.print(F("Talking to server  "));
+  flushDisplay();
 
-//  TODO: We don't have this set up server-side yet. Therefore, there's no Arduino implementation for it yet either.
   confirmServerCommunication();
   delay(setupStepTransitionDelay);
   //</editor-fold>
 
   //<editor-fold desc="Setup complete">
-  lcd.setCursor(0, 0);
+  setDisplayCursor(0, 0);
   lcd.print(F("Setup complete!    "));
-  lcd.setCursor(0, 1);
+  setDisplayCursor(0, 1);
   lcd.print(F("Please look at the "));
-  lcd.setCursor(0, 2);
+  setDisplayCursor(0, 2);
   lcd.print(F("app for next steps."));
-  lcd.setCursor(0, 3);
+  setDisplayCursor(0, 3);
   lcd.print(clearString);
+  flushDisplay();
 
   finalizeSetup();
   while (true);
@@ -246,36 +374,39 @@ void setupThermostat() {
 
 void startThermostat() {
   //<editor-fold desc="Connect to WiFi">
-  lcd.setCursor(0, 0);
+  setDisplayCursor(0, 0);
   lcd.print(F("Starting up (1/2)"));
-  lcd.setCursor(0, 1);
+  setDisplayCursor(0, 1);
   lcd.print(F("Connecting to WiFi"));
-  wifiConnect();
+  flushDisplay();
+  wifiConnect(false);
   delay(setupStepTransitionDelay);
   //</editor-fold>
 
   //<editor-fold desc="Test communication with server">
-  lcd.setCursor(0, 0);
+  setDisplayCursor(0, 0);
   lcd.print(F("Starting up (2/2)"));
-  lcd.setCursor(0, 1);
+  setDisplayCursor(0, 1);
   lcd.print(F("Talking to server "));
+  flushDisplay();
 //  TODO: We don't have this set up server-side yet. Therefore, there's no Arduino implementation for it yet either.
 //  confirmServerCommunication();
   delay(setupStepTransitionDelay);
   //</editor-fold>
 
   //<editor-fold desc="Startup complete">
-  lcd.setCursor(0, 0);
+  setDisplayCursor(0, 0);
   lcd.print(F("Startup complete!"));
-  lcd.setCursor(0, 1);
+  setDisplayCursor(0, 1);
   lcd.print(clearString);
+  flushDisplay();
   delay(setupStepTransitionDelay);
   //</editor-fold>
 }
 
 void runSetupIfNecessary() {
   initConfigStorage();
-  if (!isSetUp())
+  if (checkIfSerialCommAttempted() || !isSetUp())
     setupThermostat();
   startThermostat();
 }

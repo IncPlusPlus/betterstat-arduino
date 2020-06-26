@@ -24,4 +24,20 @@ void clearCreds();
 
 bool credsExist();
 
+void putServerCreds(char *username, char *password);
+
+struct ServerCredsStruct getServerCreds();
+
+void clearServerCreds();
+
+bool serverCredsExist();
+
+void putHostname(char *hostname, bool hostnameIsAnIP);
+
+struct HostnameStruct getHostname();
+
+void clearHostname();
+
+bool hostnameExists();
+
 void clearAllSettings();

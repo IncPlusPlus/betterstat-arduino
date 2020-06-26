@@ -75,6 +75,7 @@ bool initConfigStorage() {
     // top of this while loop will fail).
     child = configDir.openNextFile();
   }
+  return true;
 }
 
 void rmFile(const char *path) {
@@ -123,7 +124,7 @@ bool isSetUp() {
     Serial.println(F("Setup most likely still needs to be run."));
     return false;
   }
-  String line = readFile.readStringUntil('\n');
+  String line = readFile.readStringUntil('\r');
   readFile.close();
   return line.equals(F("configured"));
 }
@@ -158,12 +159,12 @@ void putCreds(char *ssid, char *password) {
     Serial.println(F("Error, failed to open wificreds.txt for writing!"));
     return;
   }
-  Serial.println(F("Opened file /config/wificreds.txt for writing/appending..."));
+//  Serial.println(F("Opened file /config/wificreds.txt for writing/appending..."));
   writeFile.println(ssid);
   writeFile.println(password);
   // Close the file when finished writing.
   writeFile.close();
-  Serial.println(F("Wrote to file /config/wificreds.txt!"));
+//  Serial.println(F("Wrote to file /config/wificreds.txt!"));
 }
 
 struct WiFiCredsStruct getCreds() {
@@ -173,8 +174,8 @@ struct WiFiCredsStruct getCreds() {
     Serial.println(F("Error, failed to open /config/wificreds.txt for reading!"));
     return creds;
   }
-  String ssid = readFile.readStringUntil('\n');
-  String password = readFile.readStringUntil('\n');
+  String ssid = readFile.readStringUntil('\r');
+  String password = readFile.readStringUntil('\r');
   readFile.close();
   ssid.toCharArray(creds.ssid, ssid.length());
   password.toCharArray(creds.password, password.length());
@@ -189,7 +190,91 @@ bool credsExist() {
   return fatfs.exists("/config/wificreds.txt");
 }
 
+void putServerCreds(char *username, char *password) {
+  rmFile("/config/servercreds.txt");
+  //create /config/servercreds.txt with the SSID and password on their own two lines followed by a newline
+  File writeFile = fatfs.open("/config/servercreds.txt", FILE_WRITE);
+  if (!writeFile) {
+    Serial.println(F("Error, failed to open servercreds.txt for writing!"));
+    return;
+  }
+//  Serial.println(F("Opened file /config/servercreds.txt for writing/appending..."));
+  writeFile.println(username);
+  writeFile.println(password);
+  // Close the file when finished writing.
+  writeFile.close();
+//  Serial.println(F("Wrote to file /config/servercreds.txt!"));
+}
+
+struct ServerCredsStruct getServerCreds() {
+  ServerCredsStruct creds{};
+  File readFile = fatfs.open("/config/servercreds.txt", FILE_READ);
+  if (!readFile) {
+    Serial.println(F("Error, failed to open /config/servercreds.txt for reading!"));
+    return creds;
+  }
+  String username = readFile.readStringUntil('\r');
+  String password = readFile.readStringUntil('\r');
+  readFile.close();
+  username.toCharArray(creds.username, username.length());
+  password.toCharArray(creds.password, password.length());
+  return creds;
+}
+
+void clearServerCreds() {
+  rmFile("/config/servercreds.txt");
+}
+
+bool serverCredsExist() {
+  return fatfs.exists("/config/servercreds.txt");
+}
+
+void putHostname(char *hostname, bool hostnameIsAnIP) {
+  rmFile("/config/hostname.txt");
+  //create /config/hostname.txt with the SSID and password on their own two lines followed by a newline
+  File writeFile = fatfs.open("/config/hostname.txt", FILE_WRITE);
+  if (!writeFile) {
+    Serial.println(F("Error, failed to open hostname.txt for writing!"));
+    return;
+  }
+//  Serial.println(F("Opened file /config/hostname.txt for writing/appending..."));
+  writeFile.println(hostname);
+  writeFile.println(hostnameIsAnIP);
+  // Close the file when finished writing.
+  writeFile.close();
+//  Serial.println(F("Wrote to file /config/hostname.txt!"));
+}
+
+struct HostnameStruct getHostname() {
+  HostnameStruct hostname_struct{};
+  File readFile = fatfs.open("/config/hostname.txt", FILE_READ);
+  if (!readFile) {
+    Serial.println(F("Error, failed to open /config/hostname.txt for reading!"));
+    return hostname_struct;
+  }
+  String hostnameString = readFile.readStringUntil('\r');
+  String isHostnameAnIP = readFile.readStringUntil('\r');
+  readFile.close();
+  Serial.println("Hostname is an IP");
+  Serial.println(isHostnameAnIP);
+  if (isHostnameAnIP.equals("1")) {
+    hostname_struct.isAnIP = true;
+  } else { hostname_struct.isAnIP = false; }
+  hostnameString.toCharArray(hostname_struct.hostname, hostnameString.length());
+  return hostname_struct;
+}
+
+void clearHostname() {
+  rmFile("/config/hostname.txt");
+}
+
+bool hostnameExists() {
+  return fatfs.exists("/config/hostname.txt");
+}
+
 void clearAllSettings() {
   clearSetUp();
   clearCreds();
+  clearServerCreds();
+  clearHostname();
 }

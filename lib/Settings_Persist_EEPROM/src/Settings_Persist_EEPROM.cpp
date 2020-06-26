@@ -4,6 +4,13 @@
 
 const int isSetUpIndex = 0;
 const int wifiCredsIndex = isSetUpIndex + sizeof(bool);
+const int serverCredsIndex = wifiCredsIndex + sizeof(WiFiCredsStruct);
+const int hostnameIndex = serverCredsIndex + sizeof(ServerCredsStruct);
+
+bool initConfigStorage() {
+  return true;
+  //Does nothing
+}
 
 void clearEEPROM() {
   for (int i = 0; i < EEPROM.length(); i++) {
@@ -32,7 +39,6 @@ void putCreds(char *ssid, char *password) {
   EEPROM.put(wifiCredsIndex, creds);
 }
 WiFiCredsStruct getCreds() {
-  // EEPROM[0] will always be where WiFiCredsStruct is stored
   WiFiCredsStruct creds;
   EEPROM.get(wifiCredsIndex, creds);
   return creds;
@@ -46,7 +52,6 @@ void clearCreds() {
 
 bool credsExist() {
   WiFiCredsStruct creds = getCreds();
-  bool credsValid = true;
   bool ssidEmpty = true;
   bool passwordEmpty = true;
 //  Check if everything is just the number 0
@@ -66,7 +71,82 @@ bool credsExist() {
   return !ssidEmpty && !passwordEmpty;
 }
 
+void putServerCreds(char *username, char *password) {
+  ServerCredsStruct creds;
+  memcpy(creds.username, username, sizeof(creds.username));
+  memcpy(creds.password, password, sizeof(creds.password));
+  EEPROM.put(serverCredsIndex, creds);
+}
+
+struct ServerCredsStruct getServerCreds() {
+  ServerCredsStruct creds;
+  EEPROM.get(serverCredsIndex, creds);
+  return creds;
+}
+
+void clearServerCreds() {
+  for (int i = serverCredsIndex; i < serverCredsIndex + sizeof(ServerCredsStruct); i++) {
+    EEPROM.write(i, 0);
+  }
+}
+
+bool serverCredsExist() {
+  ServerCredsStruct creds = getServerCreds();
+  bool ssidEmpty = true;
+  bool passwordEmpty = true;
+//  Check if everything is just the number 0
+  for (int i = 0; i < sizeof(creds.username); i++) {
+    if (creds.username[i] != 0) {
+      ssidEmpty = false;
+      break;
+    }
+  }
+  for (int i = 0; i < sizeof(creds.password); i++) {
+    if (creds.password[i] != 0) {
+      passwordEmpty = false;
+      break;
+    }
+  }
+//  The creds probably exist in EEPROM if the username and password aren't all 0s.
+  return !ssidEmpty && !passwordEmpty;
+}
+
+void putHostname(char *hostname, bool hostnameIsAnIP) {
+  HostnameStruct hostname_struct;
+  hostname_struct.isAnIP = hostnameIsAnIP;
+  memcpy(hostname_struct.hostname, hostname, sizeof(hostname_struct.hostname));
+  EEPROM.put(hostnameIndex, hostname_struct);
+}
+
+struct HostnameStruct getHostname() {
+  HostnameStruct hostname;
+  EEPROM.get(hostnameIndex, hostname);
+  return hostname;
+}
+
+void clearHostname() {
+  for (int i = hostnameIndex; i < hostnameIndex + sizeof(HostnameStruct); i++) {
+    EEPROM.write(i, 0);
+  }
+}
+
+bool hostnameExists() {
+  HostnameStruct hostname_struct = getHostname();
+  bool usernameEmpty = true;
+//  Check if everything is just the number 0
+  for (int i = 0; i < sizeof(hostname_struct.hostname); i++) {
+    if (hostname_struct.hostname[i] != 0) {
+      usernameEmpty = false;
+      break;
+    }
+  }
+//  The hostname_struct probably exist in EEPROM if the hostname isn't all 0s.
+  return !usernameEmpty;
+}
+
 void clearAllSettings() {
   clearSetUp();
   clearCreds();
+  clearServerCreds();
+  clearHostname();
 }

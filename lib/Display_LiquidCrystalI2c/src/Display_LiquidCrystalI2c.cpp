@@ -8,15 +8,25 @@
 
 /********************************/
 // include the library code
-#include <Arduino.h>
-#include <display_variables.h>
-#include <Wire.h>
+#include <Display_LiquidCrystalI2c_Variables.h>
 #include <LiquidCrystal_I2C.h>
-#include <Display.h>
+#include <Display_LiquidCrystalI2c.hpp>
 LiquidCrystal_I2C
-    lcd(0x27, DISPLAY_COLUMNS, DISPLAY_ROWS); // set the LCD address to 0x27 for a 16 chars and 2 line display
+    lcd(0x27, DISPLAY_COLUMNS, DISPLAY_ROWS); // set the LCD address to 0x27 for a 20 chars and 4 line display
 
 void initDisplay() {
   lcd.init();
   lcd.backlight();
+}
+
+void clearDisplay() {
+  lcd.clear();
+}
+
+void setDisplayCursor(uint8_t col, uint8_t row) {
+  lcd.setCursor(col, row);
+}
+
+void flushDisplay() {
+  //Does nothing
 }
