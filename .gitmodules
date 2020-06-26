@@ -1,0 +1,3 @@
+[submodule "lib/ProtoThreadsForArduino"]
+	path = lib/ProtoThreadsForArduino
+	url = https://github.com/P4SSER8Y/ProtoThreadsForArduino.git
