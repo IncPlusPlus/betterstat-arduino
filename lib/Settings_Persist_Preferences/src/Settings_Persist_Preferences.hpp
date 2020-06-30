@@ -25,7 +25,7 @@ void clearServerCreds();
 
 bool serverCredsExist();
 
-void putHostname(char *hostname, bool hostnameIsAnIP);
+void putHostname(bool hostnameIsAnIP, bool isSecure, unsigned short port, char *hostname);
 
 struct HostnameStruct getHostname();
 

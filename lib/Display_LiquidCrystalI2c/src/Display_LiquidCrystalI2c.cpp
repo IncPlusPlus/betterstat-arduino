@@ -8,11 +8,10 @@
 
 /********************************/
 // include the library code
-#include <Display_LiquidCrystalI2c_Variables.h>
 #include <LiquidCrystal_I2C.h>
 #include <Display_LiquidCrystalI2c.hpp>
 LiquidCrystal_I2C
-    lcd(0x27, DISPLAY_COLUMNS, DISPLAY_ROWS); // set the LCD address to 0x27 for a 20 chars and 4 line display
+    lcd(0x27, 20, 4); // set the LCD address to 0x27 for a 20 chars and 4 line display
 
 void initDisplay() {
   lcd.init();

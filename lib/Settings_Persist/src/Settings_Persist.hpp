@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 
 #if PERSISTENT_STORAGE_TYPE == 1
 //#define BETTERSTAT_SETTINGS_PERSIST_EEPROM
@@ -13,19 +14,29 @@
 #error "Please define PERSISTENT_STORAGE_TYPE with a valid value"
 #endif
 
+/*
+ * You'll notice a lot of char arrays whose size are n+1.
+ * I do this to keep my sanity because a string with 32 characters needs
+ * a length 33 char array. I don't just write 33 because I want to very explicitly
+ * know how much of the array is useful and whether or not I've remembered
+ * to account for that damn null byte.
+ */
+
 struct WiFiCredsStruct {
-  char ssid[33];
-  char password[65];
+  char ssid[33 + 1];
+  char password[65 + 1];
 };
 
 struct ServerCredsStruct {
-  char username[32];
-  char password[32];
+  char username[32 + 1];
+  char password[32 + 1];
 };
 
 struct HostnameStruct {
   bool isAnIP;
-  char hostname[64];
+  bool isSecure;
+  uint16_t port;
+  char hostname[64 + 1];
 };
 
 WiFiCredsStruct promptForCreds();

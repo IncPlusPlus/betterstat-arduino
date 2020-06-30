@@ -4,8 +4,12 @@
 #include <WiFiHelper.h>
 #include <Settings_Persist.hpp>
 #include <Display.hpp>
+#include <HttpClient.h>
+#include <WiFiLibHelper.hpp>
+#include <base64.h>
+#include <Serial_Utils.h>
 
-const int setupStepTransitionDelay = 2500;
+const int setupStepTransitionDelay = 5000;
 const int setupWaitTimeSecs = 20;
 const PROGMEM String clearString = "                    ";
 
@@ -40,7 +44,51 @@ char const *getWl_status_t(int status) {
   }
 }
 
+/**
+ * Call this if the setup fails at any point. This will notify the server
+ * of the failure with the specified reason. This, in turn, will allow the user
+ * to see the error and reason in the app.
+ *
+ * This method is an activity sink. It will throw the device into an endless while(true){}.
+ * Call it if there is no way to recover gracefully.
+ * @param reason the reason or details about the failure
+ */
+[[noreturn]] void failSetup(const char *reason) {
+  clearDisplay();
+  setDisplayCursor(0, 0);
+  lcd.print(F("SETUP FAILED!!!"));
+  setDisplayCursor(0, 1);
+  lcd.print(F("Please check the app"));
+  flushDisplay();
+  Serial.print(F("SETUP_FAILED"));
+  /*
+   * We don't always know what the reason parameter will contain. If it contains newlines,
+   * the server's reading methods will stop reading once that is seen. To smuggle those through,
+   * a base64 encoded string is passed to the server.
+   */
+  Serial.println(base64::encode(reason));
+  //Hang indefinitely
+  while (true) {}
+}
+
+/**
+ * @see failSetup(const char *reason)
+ */
+[[noreturn]] void failSetup(const __FlashStringHelper *reason) {
+  failSetup(reinterpret_cast<const char *>(reason));
+}
+
+/**
+ * @see failSetup(const char *reason)
+ */
+[[noreturn]] void failSetup(const String &s) {
+  failSetup(s.c_str());
+}
+
 void printConnectStatus(bool inSetup, int status) {
+  const char *radioStatus = getWl_status_t(status);
+  Serial.print(F("Radio status: "));
+  Serial.println(radioStatus);
   clearDisplay();
   if (inSetup) {
     setDisplayCursor(0, 0);
@@ -66,7 +114,7 @@ void printConnectStatus(bool inSetup, int status) {
   setDisplayCursor(0, 2);
   lcd.print(F("Status:"));
   setDisplayCursor(0, 3);
-  lcd.print(getWl_status_t(status));
+  lcd.print(radioStatus);
   flushDisplay();
 }
 
@@ -135,12 +183,6 @@ void wifiCredsSetup() {
   flushDisplay();
 
   WiFiCredsStruct userEnteredCreds = promptForCreds();
-  Serial.print("'");
-  Serial.print(userEnteredCreds.ssid);
-  Serial.println("'");
-  Serial.print("'");
-  Serial.print(userEnteredCreds.password);
-  Serial.println("'");
   putCreds(userEnteredCreds.ssid, userEnteredCreds.password);
   clearDisplay();
   setDisplayCursor(0, 2);
@@ -200,49 +242,26 @@ void printMacAddress(byte mac[]) {
 //}
 
 void wifiConnect(bool inSetup) {
-  // check for the presence of the shield:
-//  if (WiFi.status() == WL_NO_SHIELD) {
-//    setDisplayCursor(0, 2);
-//    lcd.print(F("SETUP FAILED!!!"));
-//    setDisplayCursor(0, 3);
-//    lcd.print(F("WiFi shield missing!"));
-//    flushDisplay();
-//    // don't continue:
-//    // TODO: Talk back to the server here if setup is happening so the user can see the issue in-app.
-//    // while (true);
-//  }
-  Serial.println(F("About to connect"));
   int status = WL_IDLE_STATUS;     // the WiFi radio's status
   printConnectStatus(inSetup, status);
-  delay(setupStepTransitionDelay);
+//  delay(setupStepTransitionDelay);
   while (status != WL_CONNECTED) {
     // Connect to WPA/WPA2 network:
     WiFiCredsStruct creds = getCreds();
-    Serial.print("'");
-    Serial.print(creds.ssid);
-    Serial.println("'");
-    Serial.print("'");
-    Serial.print(creds.password);
-    Serial.println("'");
     status = WiFi.begin(creds.ssid, creds.password);
     // wait 10 seconds for connection:
-    delay(setupStepTransitionDelay);
-    Serial.println(getWl_status_t(status));
+    delay(15000);
     printConnectStatus(inSetup, status);
   }
-  Serial.println("");
+  Serial.println();
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
+  Serial.println(ipAddressToString(WiFi.localIP()));
 //  printCurrentNet();
 //  printWiFiData();
 }
 
 void doServerCredsSetup() {
-  setDisplayCursor(0, 2);
-  lcd.print(clearString);
-  setDisplayCursor(0, 3);
-  lcd.print(clearString);
   setDisplayCursor(0, 2);
   lcd.print(F("Reading terminal.   "));
   setDisplayCursor(0, 3);
@@ -252,8 +271,7 @@ void doServerCredsSetup() {
   ServerCredsStruct userEnteredCreds = promptForServerCreds();
   putServerCreds(userEnteredCreds.username, userEnteredCreds.password);
 
-  setDisplayCursor(0, 2);
-  lcd.print(clearString);
+  clearDisplay();
   setDisplayCursor(0, 2);
   lcd.print(F("Received credentials"));
   flushDisplay();
@@ -261,37 +279,50 @@ void doServerCredsSetup() {
 
 void doServerHostnameOrIpSetup() {
   setDisplayCursor(0, 2);
-  lcd.print(clearString);
-  setDisplayCursor(0, 3);
-  lcd.print(clearString);
-  setDisplayCursor(0, 2);
   lcd.print(F("Reading terminal.   "));
   setDisplayCursor(0, 3);
   lcd.print(F("Waiting for input..."));
   flushDisplay();
 
   HostnameStruct hostname_struct = promptForHostname();
-  putHostname(hostname_struct.hostname, hostname_struct.isAnIP);
+  putHostname(hostname_struct.isAnIP, hostname_struct.isSecure, hostname_struct.port, hostname_struct.hostname);
 
-  setDisplayCursor(0, 2);
-  lcd.print(clearString);
+  clearDisplay();
   setDisplayCursor(0, 2);
   lcd.print(F("Received hostname"));
   flushDisplay();
 }
 
 void confirmServerCommunication() {
-  setDisplayCursor(0, 2);
-  lcd.print(clearString);
-  setDisplayCursor(0, 3);
-  lcd.print(clearString);
-  flushDisplay();
-//IPAddress ip = WiFi.localIP();
-//  if(client.connect())
+  HostnameStruct hostname_struct = getHostname();
+  HttpClient client = getClient(hostname_struct.hostname, hostname_struct.port, hostname_struct.isSecure);
+  bool connectSuccess;
+  Serial.print(F("Connecting to server: "));
+  Serial.println(String(hostname_struct.hostname) + ":" + hostname_struct.port + " with HTTP"
+                     + (hostname_struct.isSecure ? "S" : ""));
+  connectSuccess = client.connect(hostname_struct.hostname, hostname_struct.port);
+  if (!connectSuccess) {
+    Serial.println("ERROR CONNECTING");
+    failSetup(F("Failed to connect to server"));
+  } else {
+    Serial.println("Connected to server!");
+    client.beginRequest();
+    client.get("/thermostat-api/hello-world");
+    client.sendBasicAuth(getServerCreds().username, getServerCreds().password);
+    client.endRequest();
+
+    // read the status code and body of the response
+    int statusCode = client.responseStatusCode();
+    String response = client.responseBody();
+
+    if (statusCode != 200 && !response.equals("Ok"))
+      failSetup(String(F("Unexpected response from server: ")) + statusCode + "\n" + response);
+
+    client.stop();
+  }
 }
 
 void finalizeSetup() {
-  // TODO: Send message to the server to have the app prompt the user to do the next setup steps.
   setSetUp(true);
   Serial.println(F("SETUP_COMPLETE"));
 }
@@ -300,7 +331,6 @@ void finalizeSetup() {
 ///Delays exist in this function so that the user can follow along.
 void setupThermostat() {
   //<editor-fold desc="Set up WiFi credentials">
-
   setDisplayCursor(0, 0);
   lcd.print(F("Running setup (1/5)"));
   setDisplayCursor(0, 1);
@@ -324,6 +354,7 @@ void setupThermostat() {
   //</editor-fold>
 
   //<editor-fold desc="Get auth token from server">
+  clearDisplay();
   setDisplayCursor(0, 0);
   lcd.print(F("Running setup (3/5)"));
   setDisplayCursor(0, 1);
@@ -335,6 +366,7 @@ void setupThermostat() {
   //</editor-fold>
 
   //<editor-fold desc="Save hostname or IP to EEPROM">
+  clearDisplay();
   setDisplayCursor(0, 0);
   lcd.print(F("Running setup (4/5)"));
   setDisplayCursor(0, 1);
@@ -346,10 +378,11 @@ void setupThermostat() {
   //</editor-fold>
 
   //<editor-fold desc="Test communication with server">
+  clearDisplay();
   setDisplayCursor(0, 0);
   lcd.print(F("Running setup (5/5)"));
   setDisplayCursor(0, 1);
-  lcd.print(F("Talking to server  "));
+  lcd.print(F("Talking to server"));
   flushDisplay();
 
   confirmServerCommunication();
@@ -357,10 +390,11 @@ void setupThermostat() {
   //</editor-fold>
 
   //<editor-fold desc="Setup complete">
+  clearDisplay();
   setDisplayCursor(0, 0);
-  lcd.print(F("Setup complete!    "));
+  lcd.print(F("Setup complete!"));
   setDisplayCursor(0, 1);
-  lcd.print(F("Please look at the "));
+  lcd.print(F("Please look at the"));
   setDisplayCursor(0, 2);
   lcd.print(F("app for next steps."));
   setDisplayCursor(0, 3);

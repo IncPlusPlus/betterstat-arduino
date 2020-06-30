@@ -111,9 +111,11 @@ bool serverCredsExist() {
   return !ssidEmpty && !passwordEmpty;
 }
 
-void putHostname(char *hostname, bool hostnameIsAnIP) {
+void putHostname(bool hostnameIsAnIP, bool isSecure, uint16_t port, char *hostname) {
   HostnameStruct hostname_struct;
   hostname_struct.isAnIP = hostnameIsAnIP;
+  hostname_struct.isSecure = isSecure;
+  hostname_struct.port = port;
   memcpy(hostname_struct.hostname, hostname, sizeof(hostname_struct.hostname));
   EEPROM.put(hostnameIndex, hostname_struct);
 }

@@ -1,9 +1,11 @@
-#ifndef BETTERSTAT_ARDUINO_LIB_SERIAL_UTILS_SRC_SERIAL_UTILS_H_
-#define BETTERSTAT_ARDUINO_LIB_SERIAL_UTILS_SRC_SERIAL_UTILS_H_
+#pragma once
 #include <Arduino.h>
+#include <IPAddress.h>
 
 String readLine();
 
 String getDelimitedString(const String &s);
 
-#endif //BETTERSTAT_ARDUINO_LIB_SERIAL_UTILS_SRC_SERIAL_UTILS_H_
+String ipAddressToString(IPAddress &ip);
+
+String ipAddressToString(uint32_t ip);

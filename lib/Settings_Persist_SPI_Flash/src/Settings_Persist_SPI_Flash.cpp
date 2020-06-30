@@ -125,6 +125,7 @@ bool isSetUp() {
     return false;
   }
   String line = readFile.readStringUntil('\r');
+  line.trim();
   readFile.close();
   return line.equals(F("configured"));
 }
@@ -175,10 +176,14 @@ struct WiFiCredsStruct getCreds() {
     return creds;
   }
   String ssid = readFile.readStringUntil('\r');
+  ssid.trim();
   String password = readFile.readStringUntil('\r');
+  password.trim();
+  Serial.println("'" + String(ssid) + "'");
+  Serial.println("'" + String(password) + "'");
   readFile.close();
-  ssid.toCharArray(creds.ssid, ssid.length());
-  password.toCharArray(creds.password, password.length());
+  ssid.toCharArray(creds.ssid, sizeof(creds.ssid));
+  password.toCharArray(creds.password, sizeof(creds.password));
   return creds;
 }
 
@@ -214,10 +219,12 @@ struct ServerCredsStruct getServerCreds() {
     return creds;
   }
   String username = readFile.readStringUntil('\r');
+  username.trim();
   String password = readFile.readStringUntil('\r');
+  password.trim();
   readFile.close();
-  username.toCharArray(creds.username, username.length());
-  password.toCharArray(creds.password, password.length());
+  username.toCharArray(creds.username, sizeof(creds.username));
+  password.toCharArray(creds.password, sizeof(creds.password));
   return creds;
 }
 
@@ -229,7 +236,7 @@ bool serverCredsExist() {
   return fatfs.exists("/config/servercreds.txt");
 }
 
-void putHostname(char *hostname, bool hostnameIsAnIP) {
+void putHostname(bool hostnameIsAnIP, bool isSecure, uint16_t port, char *hostname) {
   rmFile("/config/hostname.txt");
   //create /config/hostname.txt with the SSID and password on their own two lines followed by a newline
   File writeFile = fatfs.open("/config/hostname.txt", FILE_WRITE);
@@ -238,8 +245,10 @@ void putHostname(char *hostname, bool hostnameIsAnIP) {
     return;
   }
 //  Serial.println(F("Opened file /config/hostname.txt for writing/appending..."));
-  writeFile.println(hostname);
   writeFile.println(hostnameIsAnIP);
+  writeFile.println(isSecure);
+  writeFile.println(port);
+  writeFile.println(hostname);
   // Close the file when finished writing.
   writeFile.close();
 //  Serial.println(F("Wrote to file /config/hostname.txt!"));
@@ -252,15 +261,24 @@ struct HostnameStruct getHostname() {
     Serial.println(F("Error, failed to open /config/hostname.txt for reading!"));
     return hostname_struct;
   }
-  String hostnameString = readFile.readStringUntil('\r');
   String isHostnameAnIP = readFile.readStringUntil('\r');
+  isHostnameAnIP.trim();
+  String isSecure = readFile.readStringUntil('\r');
+  isSecure.trim();
+  String port = readFile.readStringUntil('\r');
+  port.trim();
+  String hostnameString = readFile.readStringUntil('\r');
+  hostnameString.trim();
   readFile.close();
-  Serial.println("Hostname is an IP");
-  Serial.println(isHostnameAnIP);
+  //TODO: cleanup prints and code duplication
   if (isHostnameAnIP.equals("1")) {
     hostname_struct.isAnIP = true;
   } else { hostname_struct.isAnIP = false; }
-  hostnameString.toCharArray(hostname_struct.hostname, hostnameString.length());
+  if (isSecure.equals("1")) {
+    hostname_struct.isSecure = true;
+  } else { hostname_struct.isSecure = false; }
+  hostname_struct.port = port.toInt();
+  hostnameString.toCharArray(hostname_struct.hostname, sizeof(hostname_struct.hostname));
   return hostname_struct;
 }
 
