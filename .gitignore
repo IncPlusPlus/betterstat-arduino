@@ -19,5 +19,3 @@
 CMakeLists.txt
 CMakeListsPrivate.txt
 cmake-build-*/
-# For some reason the cmake-build-featheresp32 folder is just named featheresp32
-featheresp32/
