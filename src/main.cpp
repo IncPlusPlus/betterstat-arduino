@@ -1,26 +1,22 @@
 #include <Arduino.h>
-#include <Display.h>
+#include <Display.hpp>
+#include <Setup_Helper.h>
+//#include <Settings_Persist.hpp>
+//#include <WiFiClient.h>
+//Uncomment this line, upload the program, comment it, and reupload to start with cleared settings.
+//#include <Settings_Persist.hpp>
+//WiFiClient client;
 
 void setup() {
-    initDisplay();
-    Serial.begin(9600);
+  initDisplay();
+//  Uncomment this line, upload the program, comment it, and reupload to start with cleared settings.
+//  clearAllSettings();
+  Serial.begin(115200);
+  //Smuggle in the WiFiClient
+  runSetupIfNecessary();
 }
 
 void loop() {
-    beginNewText();
-    printOnLine(0,"Hi there!");
-    printOnLine(1,"My name is Ryan.");
-    endText();
-    delay(3000);
-    beginUpdateText();
-    printOnLine(2,"Ummmm...");
-    endText();
-    delay(1500);
-    beginUpdateText();
-    printOnLine(3,"You got a name?");
-    endText();
-    while(true){
-        Serial.println("IN LOOP");
-        delay(5000);
-    }
+  Serial.println(F("In loop"));
+  delay(5000);
 }

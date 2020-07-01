@@ -1,2 +1,0 @@
-#define DISPLAY_ROWS 4
-#define DISPLAY_COLUMNS 20
